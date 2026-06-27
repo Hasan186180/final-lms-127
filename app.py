@@ -1,9 +1,9 @@
 import streamlit as st
 import requests
 import os
-import subprocess
 import sys
 import time
+import threading
 from dotenv import load_dotenv
 
 # ==========================================
@@ -11,22 +11,38 @@ from dotenv import load_dotenv
 # ==========================================
 load_dotenv()
 
-def start_backend():
-    try:
-        log_file = open("backend.log", "a")
-        subprocess.Popen(
-            [sys.executable, "-m", "uvicorn", "api:app", "--host", "127.0.0.1", "--port", "8000"],
-            stdout=log_file,
-            stderr=log_file
-        )
-    except Exception as e:
-        print(f"Backend subprocess error: {e}")
+# Module-level flag — ensures backend only starts ONCE per Python process,
+# even when Streamlit reruns the script on every user interaction.
+_BACKEND_STARTED = False
 
-try:
-    requests.get("http://127.0.0.1:8000/courses", timeout=0.5)
-except Exception:
-    start_backend()
-    time.sleep(2.5)
+def _run_uvicorn():
+    import uvicorn
+    uvicorn.run("api:app", host="127.0.0.1", port=8000,
+                log_level="error", install_signals=False)
+
+def _ensure_backend():
+    global _BACKEND_STARTED
+    if _BACKEND_STARTED:
+        return
+    try:
+        requests.get("http://127.0.0.1:8000/courses", timeout=0.3)
+        _BACKEND_STARTED = True          # already running (e.g. launched externally)
+        return
+    except Exception:
+        pass
+    _BACKEND_STARTED = True
+    t = threading.Thread(target=_run_uvicorn, daemon=True)
+    t.start()
+    # Give uvicorn up to 4 seconds to bind the port
+    for _ in range(8):
+        time.sleep(0.5)
+        try:
+            requests.get("http://127.0.0.1:8000/courses", timeout=0.3)
+            return
+        except Exception:
+            pass
+
+_ensure_backend()
 
 # ==========================================
 # Page Configuration – no sidebar
