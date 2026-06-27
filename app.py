@@ -9,19 +9,28 @@ from dotenv import load_dotenv
 # Load local .env if exists
 load_dotenv()
 
-# Start FastAPI backend in a background thread if it is not already running
+import subprocess
+import sys
+
+# Start FastAPI backend in a background subprocess if it is not already running
 def start_backend():
     try:
-        uvicorn.run("api:app", host="127.0.0.1", port=8000, log_level="info")
+        log_file = open("backend.log", "a")
+        subprocess.Popen(
+            [sys.executable, "-m", "uvicorn", "api:app", "--host", "127.0.0.1", "--port", "8000"],
+            stdout=log_file,
+            stderr=log_file
+        )
     except Exception as e:
-        print(f"Backend thread error: {e}")
+        print(f"Backend subprocess error: {e}")
 
 try:
     requests.get("http://127.0.0.1:8000/courses", timeout=0.5)
-except requests.exceptions.ConnectionError:
-    thread = threading.Thread(target=start_backend, daemon=True)
-    thread.start()
-    time.sleep(1.5)  # Wait for uvicorn to start
+except Exception:
+    start_backend()
+    time.sleep(2.5)  # Wait for uvicorn to bind to port 8000
+
+
 
 
 # ==========================================
