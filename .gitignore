@@ -1,0 +1,22 @@
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Local environment variables
+.env
+
+# SQLite database
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# Streamlit config/secrets (optional local settings)
+.streamlit/
+
+# IDE files
+.vscode/
+.idea/
+.gemini/
