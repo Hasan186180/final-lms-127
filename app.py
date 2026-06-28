@@ -17,23 +17,30 @@ _BACKEND_STARTED = False
 
 def _run_uvicorn():
     import uvicorn
-    uvicorn.run("api:app", host="127.0.0.1", port=8000,
-                log_level="error", install_signals=False)
+    config = uvicorn.Config(
+        "api:app", host="127.0.0.1", port=8000, log_level="error"
+    )
+    server = uvicorn.Server(config)
+    # Disable OS signal handlers — only the main thread can register them.
+    server.install_signal_handlers = lambda: None
+    server.run()
 
 def _ensure_backend():
     global _BACKEND_STARTED
     if _BACKEND_STARTED:
         return
+    # Check if already running (e.g. launched externally)
     try:
         requests.get("http://127.0.0.1:8000/courses", timeout=0.3)
-        _BACKEND_STARTED = True          # already running (e.g. launched externally)
+        _BACKEND_STARTED = True
         return
     except Exception:
         pass
+    # Start in a background daemon thread
     _BACKEND_STARTED = True
     t = threading.Thread(target=_run_uvicorn, daemon=True)
     t.start()
-    # Give uvicorn up to 4 seconds to bind the port
+    # Wait up to 4 seconds for the port to open
     for _ in range(8):
         time.sleep(0.5)
         try:
@@ -43,6 +50,7 @@ def _ensure_backend():
             pass
 
 _ensure_backend()
+
 
 # ==========================================
 # Page Configuration – no sidebar
